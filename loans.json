@@ -1,0 +1,23 @@
+[
+  {
+    "id": "692894",
+    "bookId": "692791",
+    "memberId": "285081",
+    "borrowDate": {
+      "year": 2026,
+      "month": 7,
+      "day": 27
+    },
+    "dueDate": {
+      "year": 2026,
+      "month": 8,
+      "day": 10
+    },
+    "returnDate": {
+      "year": 2026,
+      "month": 7,
+      "day": 27
+    },
+    "returned": true
+  }
+]
