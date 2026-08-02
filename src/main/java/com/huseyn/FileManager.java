@@ -17,7 +17,7 @@ public class FileManager {
     private static final Type booksListType = new TypeToken<List<Book>>(){}.getType();
     private static final Type membersListType = new TypeToken<List<Member>>(){}.getType();
     private static final Type loansListType = new TypeToken<List<Loan>>(){}.getType();
-
+    db dataBase = new db();
     FileManager(){
         books=new ArrayList<>();
         members= new ArrayList<>();
@@ -29,7 +29,7 @@ public class FileManager {
         saveLoans();
     }
     private void saveBooks() {
-        books= new ArrayList<>(db.getBooks());
+        books= new ArrayList<>(dataBase.getBooks());
         try(FileWriter fr= new FileWriter("books.json")){
             Gson gson = new GsonBuilder().setPrettyPrinting().serializeNulls().create();
             gson.toJson(books,booksListType,fr);
@@ -38,7 +38,7 @@ public class FileManager {
         }
     }
     private void saveMembers() {
-        members= new ArrayList<>(db.getMembers());
+        members= new ArrayList<>(dataBase.getMembers());
         try(FileWriter fr= new FileWriter("members.json")){
             Gson gson = new GsonBuilder().setPrettyPrinting().serializeNulls().create();
             gson.toJson(members,membersListType,fr);
@@ -47,7 +47,7 @@ public class FileManager {
         }
     }
     private void saveLoans() {
-        loans= new ArrayList<>(db.getLoans());
+        loans= new ArrayList<>(dataBase.getLoans());
         try(FileWriter fr= new FileWriter("loans.json")){
             Gson gson = new GsonBuilder().setPrettyPrinting().serializeNulls().create();
             gson.toJson(loans,loansListType,fr);

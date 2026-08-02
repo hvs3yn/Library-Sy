@@ -1,10 +1,10 @@
 package com.huseyn;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockedStatic;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -12,139 +12,191 @@ import static org.mockito.Mockito.*;
 
 class LibraryServiceTest {
 
-    private LibraryService newService(List<Book> books, List<Member> members, List<Loan> loans, MockedStatic<db> dbMock) {
-        dbMock.when(db::getBooks).thenReturn(books);
-        dbMock.when(db::getMembers).thenReturn(members);
-        dbMock.when(db::getLoans).thenReturn(loans);
-        return new LibraryService();
+    private BookDAO bookDAO;
+    private MemberDAO memberDAO;
+    private LoanDAO loanDAO;
+    private LibraryService service;
+
+    @BeforeEach
+    void setUp() {
+        bookDAO = mock(BookDAO.class);
+        memberDAO = mock(MemberDAO.class);
+        loanDAO = mock(LoanDAO.class);
+        service = new LibraryService(bookDAO, memberDAO, loanDAO);
     }
 
     @Test
-    void addBook_persistsAndTracksBook() {
-        try (MockedStatic<db> dbMock = mockStatic(db.class)) {
-            LibraryService service = newService(new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), dbMock);
-            Book book = new Book("B1", "Title", "Author", "Genre", 2000, 3);
+    void addBook_delegatesToBookDAO() {
+        Book book = new Book("B1", "Title", "Author", "Genre", 2000, 3);
 
-            service.addBook(book);
+        service.addBook(book);
 
-            assertTrue(service.books.contains(book));
-            dbMock.verify(() -> db.insertBook(book));
-        }
+        verify(bookDAO).insertBook(book);
     }
 
     @Test
-    void updateBook_adjustsQuantityAndAvailable_preservingBorrowedCount() {
-        try (MockedStatic<db> dbMock = mockStatic(db.class)) {
-            Book book = new Book("B1", "Title", "Author", "Genre", 2000, 5);
-            book.setAvailable(3); // 2 copies currently borrowed
-            LibraryService service = newService(new ArrayList<>(List.of(book)), new ArrayList<>(), new ArrayList<>(), dbMock);
+    void updateBook_recalculatesAvailableFromBorrowedCount() {
+        Book existing = new Book("B1", "Title", "Author", "Genre", 2000, 5, 2);
+        when(bookDAO.findBookById("B1")).thenReturn(Optional.of(existing));
 
-            service.updateBook("B1", 10);
+        service.updateBook("B1", 10);
 
-            assertEquals(10, book.getQuantity());
-            assertEquals(8, book.getAvailable()); // borrowed count (2) preserved
-            dbMock.verify(() -> db.updateBook(book));
-        }
+        assertEquals(10, existing.getQuantity());
+        assertEquals(7, existing.getAvailable());
+        verify(bookDAO).updateBook(existing);
     }
 
     @Test
-    void deleteBook_removesFromListAndDb() {
-        try (MockedStatic<db> dbMock = mockStatic(db.class)) {
-            Book book = new Book("B1", "Title", "Author", "Genre", 2000, 5);
-            LibraryService service = newService(new ArrayList<>(List.of(book)), new ArrayList<>(), new ArrayList<>(), dbMock);
+    void updateBook_doesNothingWhenBookNotFound() {
+        when(bookDAO.findBookById("missing")).thenReturn(Optional.empty());
 
-            service.deleteBook("B1");
+        service.updateBook("missing", 10);
 
-            assertFalse(service.books.contains(book));
-            dbMock.verify(() -> db.deleteBook(book));
-        }
+        verify(bookDAO, never()).updateBook(any());
     }
 
     @Test
-    void addMember_persistsAndTracksMember() {
-        try (MockedStatic<db> dbMock = mockStatic(db.class)) {
-            LibraryService service = newService(new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), dbMock);
-            Member member = new Member("M1", "John", "Doe", 20, "john@example.com");
+    void deleteBook_delegatesToBookDAO() {
+        service.deleteBook("B1");
 
-            service.addMember(member);
-
-            assertTrue(service.members.contains(member));
-            dbMock.verify(() -> db.insertMember(member));
-        }
+        verify(bookDAO).deleteBook("B1");
     }
 
     @Test
-    void updateMember_updatesFieldsAndPersists() {
-        try (MockedStatic<db> dbMock = mockStatic(db.class)) {
-            Member member = new Member("M1", "John", "Doe", 20, "john@example.com");
-            LibraryService service = newService(new ArrayList<>(), new ArrayList<>(List.of(member)), new ArrayList<>(), dbMock);
+    void findBook_returnsBookWhenPresent() {
+        Book book = new Book("B1", "Title", "Author", "Genre", 2000, 3);
+        when(bookDAO.findBookById("B1")).thenReturn(Optional.of(book));
 
-            service.updateMember("M1", "Jane", "Smith", 25, "jane@example.com");
-
-            assertEquals("Jane", member.getFirstName());
-            assertEquals("Smith", member.getLastName());
-            assertEquals(25, member.getAge());
-            assertEquals("jane@example.com", member.getEmail());
-            dbMock.verify(() -> db.updateMember(member));
-        }
+        assertEquals(book, service.findBook("B1"));
     }
 
     @Test
-    void deleteMember_removesFromListAndDb() {
-        try (MockedStatic<db> dbMock = mockStatic(db.class)) {
-            Member member = new Member("M1", "John", "Doe", 20, "john@example.com");
-            LibraryService service = newService(new ArrayList<>(), new ArrayList<>(List.of(member)), new ArrayList<>(), dbMock);
+    void findBook_returnsNullWhenAbsent() {
+        when(bookDAO.findBookById("missing")).thenReturn(Optional.empty());
 
-            service.deleteMember("M1");
-
-            assertFalse(service.members.contains(member));
-            dbMock.verify(() -> db.deleteMember(member));
-        }
+        assertNull(service.findBook("missing"));
     }
 
     @Test
-    void borrowBook_decrementsAvailabilityAndCreatesLoan() {
-        try (MockedStatic<db> dbMock = mockStatic(db.class)) {
-            Book book = new Book("B1", "Title", "Author", "Genre", 2000, 5);
-            LibraryService service = newService(new ArrayList<>(List.of(book)), new ArrayList<>(), new ArrayList<>(), dbMock);
+    void addMember_delegatesToMemberDAO() {
+        Member member = new Member("M1", "John", "Doe", 25, "john@example.com");
 
-            service.borrowBook("B1", "M1");
+        service.addMember(member);
 
-            assertEquals(4, book.getAvailable());
-            assertEquals(1, service.loans.size());
-            dbMock.verify(() -> db.borrowBook(any(Loan.class)));
-            dbMock.verify(() -> db.updateBook(book));
-        }
+        verify(memberDAO).insertMember(member);
     }
 
     @Test
-    void borrowBook_doesNothing_whenNoCopiesAvailable() {
-        try (MockedStatic<db> dbMock = mockStatic(db.class)) {
-            Book book = new Book("B1", "Title", "Author", "Genre", 2000, 1);
-            book.setAvailable(0);
-            LibraryService service = newService(new ArrayList<>(List.of(book)), new ArrayList<>(), new ArrayList<>(), dbMock);
+    void deleteMember_delegatesToMemberDAO() {
+        service.deleteMember("M1");
 
-            service.borrowBook("B1", "M1");
-
-            assertEquals(0, service.loans.size());
-            dbMock.verify(() -> db.borrowBook(any(Loan.class)), never());
-        }
+        verify(memberDAO).deleteMember("M1");
     }
 
     @Test
-    void returnBook_marksLoanReturnedAndIncrementsAvailability() {
-        try (MockedStatic<db> dbMock = mockStatic(db.class)) {
-            Book book = new Book("B1", "Title", "Author", "Genre", 2000, 5);
-            book.setAvailable(4);
-            Loan loan = new Loan("B1", "M1");
-            LibraryService service = newService(new ArrayList<>(List.of(book)), new ArrayList<>(), new ArrayList<>(List.of(loan)), dbMock);
+    void findMember_returnsMemberWhenPresent() {
+        Member member = new Member("M1", "John", "Doe", 25, "john@example.com");
+        when(memberDAO.findMemberById("M1")).thenReturn(Optional.of(member));
 
-            service.returnBook(loan.getId());
+        assertEquals(member, service.findMember("M1"));
+    }
 
-            assertTrue(loan.isReturned());
-            assertEquals(5, book.getAvailable());
-            dbMock.verify(() -> db.returnBook(loan));
-            dbMock.verify(() -> db.updateBook(book));
-        }
+    @Test
+    void findMember_returnsNullWhenAbsent() {
+        when(memberDAO.findMemberById("missing")).thenReturn(Optional.empty());
+
+        assertNull(service.findMember("missing"));
+    }
+
+    @Test
+    void borrowBook_reducesAvailabilityAndCreatesLoan() {
+        Book book = new Book("B1", "Title", "Author", "Genre", 2000, 3, 2);
+        when(bookDAO.findBookById("B1")).thenReturn(Optional.of(book));
+
+        service.borrowBook("B1", "M1");
+
+        assertEquals(1, book.getAvailable());
+        verify(bookDAO).updateBook(book);
+        verify(loanDAO).borrowBook(any(Loan.class));
+    }
+
+    @Test
+    void borrowBook_doesNothingWhenNoCopiesAvailable() {
+        Book book = new Book("B1", "Title", "Author", "Genre", 2000, 3, 0);
+        when(bookDAO.findBookById("B1")).thenReturn(Optional.of(book));
+
+        service.borrowBook("B1", "M1");
+
+        verify(loanDAO, never()).borrowBook(any());
+        verify(bookDAO, never()).updateBook(any());
+    }
+
+    @Test
+    void borrowBook_doesNothingWhenBookNotFound() {
+        when(bookDAO.findBookById("missing")).thenReturn(Optional.empty());
+
+        service.borrowBook("missing", "M1");
+
+        verify(loanDAO, never()).borrowBook(any());
+    }
+
+    @Test
+    void returnBook_marksLoanReturnedAndRestocksBook() {
+        Loan loan = new Loan("B1", "M1");
+        Book book = new Book("B1", "Title", "Author", "Genre", 2000, 3, 1);
+        when(loanDAO.findLoanById("L1")).thenReturn(Optional.of(loan));
+        when(bookDAO.findBookById("B1")).thenReturn(Optional.of(book));
+
+        service.returnBook("L1");
+
+        assertTrue(loan.isReturned());
+        assertNotNull(loan.getReturnDate());
+        assertEquals(2, book.getAvailable());
+        verify(loanDAO).returnBook(loan);
+        verify(bookDAO).updateBook(book);
+    }
+
+    @Test
+    void returnBook_doesNothingWhenLoanNotFound() {
+        when(loanDAO.findLoanById("missing")).thenReturn(Optional.empty());
+
+        service.returnBook("missing");
+
+        verify(loanDAO, never()).returnBook(any());
+    }
+
+    @Test
+    void returnBook_doesNothingWhenAlreadyReturned() {
+        Loan loan = new Loan("B1", "M1");
+        loan.setReturnDate(java.time.LocalDate.now());
+        when(loanDAO.findLoanById("L1")).thenReturn(Optional.of(loan));
+
+        service.returnBook("L1");
+
+        verify(loanDAO, never()).returnBook(any());
+    }
+
+    @Test
+    void findLoan_returnsLoanWhenPresent() {
+        Loan loan = new Loan("B1", "M1");
+        when(loanDAO.findLoanById("L1")).thenReturn(Optional.of(loan));
+
+        assertEquals(loan, service.findLoan("L1"));
+    }
+
+    @Test
+    void findLoan_returnsNullWhenAbsent() {
+        when(loanDAO.findLoanById("missing")).thenReturn(Optional.empty());
+
+        assertNull(service.findLoan("missing"));
+    }
+
+    @Test
+    void displayBooks_readsFromBookDAO() {
+        when(bookDAO.getBooks()).thenReturn(List.of(new Book("B1", "Title", "Author", "Genre", 2000, 3)));
+
+        service.displayBooks();
+
+        verify(bookDAO).getBooks();
     }
 }

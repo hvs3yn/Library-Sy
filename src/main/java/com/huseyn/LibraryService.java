@@ -1,146 +1,141 @@
 package com.huseyn;
-
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 public class LibraryService {
-    List<Book> books;
-    List<Member> members;
-    List<Loan> loans;
+    private final BookDAO bookDAO;
+    private final MemberDAO memberDAO;
+    private final LoanDAO loanDAO;
 
     public LibraryService(){
-        books = db.getBooks();
-        members = db.getMembers();
-        loans = db.getLoans();
+        db dataBase = new db();
+        this.bookDAO = dataBase;
+        this.memberDAO = dataBase;
+        this.loanDAO = dataBase;
+    }
+
+    LibraryService(BookDAO bookDAO, MemberDAO memberDAO, LoanDAO loanDAO){
+        this.bookDAO = bookDAO;
+        this.memberDAO = memberDAO;
+        this.loanDAO = loanDAO;
     }
 
     void addBook(Book book){
-        books.add(book);
-        db.insertBook(book);
+        bookDAO.insertBook(book);
     }
     void updateBook(String id, int quantity){
-        for(Book book: books){
-            if(book.getId().equals(id)){
-                int x=book.getQuantity()-book.getAvailable();
-                book.setQuantity(quantity);
-                book.setAvailable(quantity-x);
-                db.updateBook(book);
-                return;
-            }
+        Book book ;
+        Optional<Book> optionalOfBook =bookDAO.findBookById(id);
+        if(optionalOfBook.isPresent()){
+            book=optionalOfBook.get();
+            int x=book.getQuantity()-book.getAvailable();
+            book.setQuantity(quantity);
+            book.setAvailable(quantity-x);
+            bookDAO.updateBook(book);
         }
+
     }
 
     void deleteBook(String id){
-        for(Book book: books){
-            if(book.getId().equals(id)){
-                db.deleteBook(book);
-                books.remove(book);
-                return;
-            }
-        }
+        bookDAO.deleteBook(id);
     }
 
     void displayBooks(){
-        for(Book book:books){
-            System.out.println(book.toString());
-        }
+        List<Book> books=bookDAO.getBooks();
+        books.forEach(System.out::println);
     }
 
-    void findBook(String id){
-        for(Book book: books){
-            if(book.getId().equals(id)){
-                System.out.println(book);
-                return;
-            }
+    Book findBook(String id){
+        Book book ;
+        Optional<Book> optionalBook =bookDAO.findBookById(id);
+        if(optionalBook.isPresent()){
+            book=optionalBook.get();
+            return book;
         }
-        System.out.println("Book not found.");
+        System.out.println("Book not found!");
+        return null;
     }
 
     void addMember(Member member){
-        members.add(member);
-        db.insertMember(member);
+        memberDAO.insertMember(member);
     }
 
     void updateMember(String id, String firstName, String lastName, int age, String email){
-        for(Member member: members){
-            if(member.getId().equals(id)){
-                member.setFirstName(firstName);
-                member.setLastName(lastName);
-                member.setAge(age);
-                member.setEmail(email);
-                db.updateMember(member);
-                return;
-            }
-        }
-        System.out.println("Member not found.");
+        Member member=new Member(id,firstName,lastName,age,email);
+        memberDAO.updateMember(member);
     }
 
     void deleteMember(String id){
-        for(Member member: members){
-            if(member.getId().equals(id)){
-                db.deleteMember(member);
-                members.remove(member);
-                return;
-            }
-        }
-        System.out.println("Member not found.");
+        memberDAO.deleteMember(id);
     }
 
     void displayMembers(){
-        for(Member member: members){
-            System.out.println(member);
+        List<Member> members= memberDAO.getMembers();
+        members.forEach(System.out::println);
+    }
+    Member findMember(String id){
+        Member member;
+        Optional<Member> optionalMember=memberDAO.findMemberById(id);
+        if(optionalMember.isPresent()){
+            member=optionalMember.get();
+            return member;
         }
+        System.out.println("Member not found!");
+        return null;
     }
 
     void borrowBook(String bookId, String memberId){
-        for(Book book: books){
-            if(book.getId().equals(bookId)){
-                if(book.getAvailable() <= 0){
-                    System.out.println("No copies available.");
-                    return;
-                }
-                Loan loan = new Loan(bookId, memberId);
-                loans.add(loan);
-                db.borrowBook(loan);
-                book.setAvailable(book.getAvailable() - 1);
-                db.updateBook(book);
-                System.out.println("Book borrowed successfully.");
-                return;
-            }
+        Book book = findBook(bookId);
+        if(book == null){
+            System.out.println("Book not found.");
+            return;
         }
-        System.out.println("Book not found.");
+        if(book.getAvailable() <= 0){
+            System.out.println("No copies available.");
+            return;
+        }
+        Loan loan = new Loan(bookId, memberId);
+        book.setAvailable(book.getAvailable() - 1);
+        bookDAO.updateBook(book);
+        loanDAO.borrowBook(loan);
+        System.out.println("Book borrowed successfully.");
     }
 
     void returnBook(String loanId){
-        for(Loan loan: loans){
-            if(loan.getId().equals(loanId) && !loan.isReturned()){
-                loan.setReturnDate(LocalDate.now());
-                db.returnBook(loan);
-                for(Book book: books){
-                    if(book.getId().equals(loan.getBookId())){
-                        book.setAvailable(book.getAvailable() + 1);
-                        db.updateBook(book);
-                        break;
-                    }
-                }
-                System.out.println("Book returned successfully.");
-                return;
-            }
+        Loan loan = findLoan(loanId);
+        if(loan == null || loan.isReturned()){
+            System.out.println("Loan not found or already returned.");
+            return;
         }
-        System.out.println("Loan not found or already returned.");
+        loan.setReturnDate(LocalDate.now());
+        loanDAO.returnBook(loan);
+
+        Book book = findBook(loan.getBookId());
+        if(book != null){
+            book.setAvailable(book.getAvailable() + 1);
+            bookDAO.updateBook(book);
+        }
+        System.out.println("Book returned successfully.");
     }
 
     void displayBorrowedBooks(){
-        for(Loan loan: loans){
-            if(!loan.isReturned()){
-                System.out.println(loan);
-            }
+        List<Loan> loans= loanDAO.getLoans();
+        loans.forEach(System.out::println);
+    }
+    Loan findLoan(String id){
+        Loan loan;
+        Optional<Loan> optionalLoan=loanDAO.findLoanById(id);
+        if(optionalLoan.isPresent()){
+            loan=optionalLoan.get();
+            return loan;
         }
+        return null;
     }
     public static void displayMenu(){
         System.out.println("""
-                ===== LIBRARY MANAGEMENT SYSTEM =====
                 
+                ===== LIBRARY MANAGEMENT SYSTEM =====
                 1. Add Book
                 2. Update Book
                 3. Delete Book
@@ -150,12 +145,13 @@ public class LibraryService {
                 6. Add Member
                 7. Update Member
                 8. Delete Member
-                9. Display Members
-                
-                10. Borrow Book
-                11. Return Book
-                12. Borrowed Books
-                
-                13. Exit""");
+                9. Search Member
+                10. Display Members
+
+                11. Borrow Book
+                12. Return Book
+                13. Borrowed Books
+
+                14. Exit""");
     }
 }

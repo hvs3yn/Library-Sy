@@ -19,7 +19,6 @@ public class Loan {
         setBorrowDate(LocalDate.now());
         setDueDate(getBorrowDate().plusDays(14));
         setReturnDate(null);
-        setReturned(false);
     }
     private void setId() {
         Random random = new Random();
@@ -72,7 +71,7 @@ public class Loan {
 
     public void setReturnDate(LocalDate returnDate) {
         this.returnDate = returnDate;
-        setReturned(true);
+        setReturned(returnDate != null);
     }
 
     public boolean isReturned() {

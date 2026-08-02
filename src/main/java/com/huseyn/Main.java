@@ -43,7 +43,10 @@ public class Main {
                 case 4: {
                     // Search Book
                     String id = validator.readString("Book ID: ");
-                    service.findBook(id);
+                    Book book=service.findBook(id);
+                    if(book!=null){
+                        System.out.println(book);
+                    }
                     break;
                 }
 
@@ -86,12 +89,22 @@ public class Main {
                 }
 
                 case 9: {
+                    // Search Member
+                    String id = validator.readString("Member ID: ");
+                    Member member=service.findMember(id);
+                    if(member!=null){
+                        System.out.println(member);
+                    }
+                    break;
+                }
+
+                case 10: {
                     // Display Members
                     service.displayMembers();
                     break;
                 }
 
-                case 10: {
+                case 11: {
                     // Borrow Book
                     String bookId = validator.readString("Book ID: ");
                     String memberId = validator.readString("Member ID: ");
@@ -99,20 +112,20 @@ public class Main {
                     break;
                 }
 
-                case 11: {
+                case 12: {
                     // Return Book
                     String loanId = validator.readString("Loan ID: ");
                     service.returnBook(loanId);
                     break;
                 }
 
-                case 12: {
+                case 13: {
                     // Display Borrowed Books
                     service.displayBorrowedBooks();
                     break;
                 }
 
-                case 13: {
+                case 14: {
                     System.out.println("Exiting...");
                     validator.close();
                     FileManager fileManager=new FileManager();
