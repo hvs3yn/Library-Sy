@@ -10,7 +10,7 @@ public class db implements BookDAO,MemberDAO,LoanDAO {
     private static final DataSource dataSource = DataBase.getDataSource();
 
     private  Connection getConnection() throws SQLException {
-        return dataSource.getConnection();   // borrow from pool — was DriverManager before
+        return dataSource.getConnection();
     }
 
     public  void insertBook(Book book)  {
