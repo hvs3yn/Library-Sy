@@ -1,32 +1,36 @@
 # Library Management System
 
-A console-based library management system in Java, backed by PostgreSQL.
-Manage books, members, and loans with full borrow/return workflows.
+A console-based library management system written in Java, backed by PostgreSQL.
+It manages books, members, and loans, with full borrow and return workflows.
 
 ## Features
-- Add, update, delete, search, and list books, members, and loans
-- Borrow and return books with availability tracking
-- Input validation (ranges, email format)
-- PostgreSQL persistence via JDBC with a connection pool (HikariCP)
-- Transaction-safe writes with commit/rollback
+- Add, update, delete, search, and list **books**
+- Add, update, delete, search, and list **members**
+- **Borrow** and **return** books with automatic availability tracking
+- Input validation (value ranges, email format)
+- PostgreSQL persistence through JDBC
+- Connection pooling with HikariCP
+- Transaction-safe writes (commit / rollback)
 
 ## Tech Stack
-- Java (version …)
+- Java [put your version here, e.g. 21]
 - PostgreSQL
-- JDBC + HikariCP connection pooling
+- JDBC + HikariCP
 - Maven
 - JUnit 5 + Mockito (tests)
 
 ## Architecture
-UI (Main / menu)  →  LibraryService (business logic)
-→  DAO layer (BookDAO / MemberDAO / LoanDAO interfaces)
-→  db (JDBC implementation)  →  PostgreSQL
+The app is layered:
 
-The service depends on DAO *interfaces*, not the concrete implementation,
-which allows the DAOs to be mocked in unit tests.
+Main (menu/UI) → LibraryService (business logic) → DAO interfaces → db (JDBC) → PostgreSQL
+
+The service depends on the DAO **interfaces**, not the concrete implementation,
+which lets the DAOs be mocked in unit tests without a real database.
 
 ## How to Run
 1. Install PostgreSQL and create a database named `library`.
-2. Run the schema in `docs/schema.sql` (create this).
-3. Set your DB credentials via environment variables (see Configuration).
+2. Create the tables (see `docs/schema.sql`).
+3. Set your database password as an environment variable:
+    - Windows (PowerShell): `$env:DB_PASSWORD="yourpassword"`
+    - Mac/Linux: `export DB_PASSWORD=yourpassword`
 4. Build and run:
