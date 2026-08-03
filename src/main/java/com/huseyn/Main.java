@@ -4,7 +4,7 @@ public class Main {
     public static void main(String[] args) {
         LibraryService service = new LibraryService();
         Validator validator = new Validator();
-
+        System.getenv("DB_PASSWORD");
         while (true) {
             LibraryService.displayMenu();
             int choice = validator.readInt("Choose an option: ");
